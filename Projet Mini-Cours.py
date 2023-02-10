@@ -2,7 +2,9 @@ import mesa
 import random
 import matplotlib.pyplot as plt
 
-T=[i for i in range(1001)]
+Tf=301
+
+T=[i for i in range(Tf)]
 NourritureCollectée=[0]
 
 class Agent(mesa.Agent):
@@ -11,6 +13,7 @@ class Agent(mesa.Agent):
         self.nourriture=0
         self.type_agent="Fourmi"
         self.intensite=1
+        self.memoire=[]
     def step(self):
         #pos=random.randint(1,self.model.grid.width-1),random.randint(1,self.model.grid.height-1)
         C=self.model.grid.get_cell_list_contents([self.pos])
@@ -19,21 +22,25 @@ class Agent(mesa.Agent):
                 ag.intensite+=1
             if ag.type_agent=="Nourriture":
                 self.nourriture=1
-            if ag.type_agent=="Fourmillière":
+            if ag.type_agent=="Fourmillière" and self.nourriture==1:
                 self.nourriture=0
+                self.memoire.append(ag.pos)
                 self.model.nourriture_collectée+=1
-        N=self.model.grid.get_neighbors(self.pos,False,False,1)
+        N=self.model.grid.get_neighbors(self.pos,True,False,1)
         L=[]
         x,y=self.pos
-        for n in N:
-            if n.type_agent=="Marqueur":
-                if self.nourriture==0:
+        if self.nourriture==0:
+            for n in N:
+                if n.type_agent=="Marqueur":
                     for i in range(n.intensite):
                         L.append(n.pos)
-                else:
-                    L.append(n.pos)
-        pos=random.choice(L)
-        self.model.grid.move_agent(self,pos)
+            pos=random.choice(L)
+            self.memoire.append(pos)
+            print(self.memoire)
+            self.model.grid.move_agent(self,pos)
+        else:
+            pos=self.memoire.pop()
+            self.model.grid.move_agent(self,pos)
 
 class Model(mesa.Model):
     def __init__(self,N,width,height):
@@ -58,12 +65,14 @@ class Model(mesa.Model):
             for i in range(self.num_agents):
                 a=Agent(n+i,self)
                 a.intensite=0
+                a.memoire=[pos]
                 self.schedule.add(a)
                 self.grid.place_agent(a,pos)
     def step(self):
         self.schedule.step()
         NourritureCollectée.append(self.nourriture_collectée)
-        if len(NourritureCollectée)==1000:
+        self.nourriture_collectée=0
+        if len(NourritureCollectée)==Tf:
             plt.plot(T,NourritureCollectée)
             plt.show()
 
@@ -98,11 +107,11 @@ def agent_portrayal(agent):
 
     return portrayal
 
-grid = mesa.visualization.CanvasGrid(agent_portrayal, 12, 12, 500, 500)
+grid = mesa.visualization.CanvasGrid(agent_portrayal, 3, 3, 500, 500)
 
 server = mesa.visualization.ModularServer(
-    Model, [grid], "Model", {"N": 80, "width": 12, "height": 12}
+    Model, [grid], "Model", {"N": 1, "width": 3, "height": 3}
 )
 
-server.port = 8595  # The default
+server.port = 8622  # The default
 server.launch()
